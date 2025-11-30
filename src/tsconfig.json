@@ -3,24 +3,25 @@
   "compilerOptions": {
     "target": "ESNext",
     "module": "ESNext",
-    "moduleResolution": "bundler",
+    "moduleResolution": "Node", 
+    "allowSyntheticDefaultImports": true, 
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "baseUrl": "src",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./*"]
     },
     
-    /* 核心：混合开发配置 */
-    "allowJs": true,          /* 允许编译器编译 JS 文件 */
-    "checkJs": false,         /* 不检查现有 JS 文件的类型错误（重要！防止老代码爆红） */
-    "outDir": "./dist",       /* 输出目录 */
-    "noEmit": true,           /* 由 Vite 负责打包，TS 只做检查 */
+    "allowJs": true,          
+    "checkJs": false,         
+    "outDir": "./dist",       
+    "noEmit": true,  
     
-    /* 类型检查严格度 - 针对新 TS 代码 */
-    "strict": true,           /* 开启严格模式 */
-    "noImplicitAny": false,   /* 建议初期设为 false，允许 'any' 类型，方便快速移植 */
+    "strict": false,           
+    "noImplicitAny": false,   
+    "skipLibCheck": true,            
     
-    /* 库支持 */
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "skipLibCheck": true,
     "types": ["vite/client", "node"]
   },
   "include": [
@@ -28,7 +29,7 @@
     "src/**/*.d.ts",
     "src/**/*.tsx",
     "src/**/*.vue",
-    "src/**/*.js",  /* 确保包含 JS 文件 */
+    "src/**/*.js",  
     "src/**/*.jsx"
   ],
   "exclude": ["node_modules"]

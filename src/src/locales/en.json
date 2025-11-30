@@ -95,11 +95,13 @@
     "noMapsFound": "No maps found"
   },
   "mapViewer": {
-    "minimapPreviewTitle": "Minimap Preview",
+    "mapPreviewTitle": "Map Preview",
     "noMinimapAvailable": "Minimap not available",
+    "minimapLoadFailed": "Failed to load minimap",
     "mapRegionLabel": "Region:",
     "mapNameLabel": "Map Name:",
     "mapIdLabel": "Map ID:",
+    "renderMapBtn": "Render Map",
     "noMapSelected": "No map selected"
   }
 }
