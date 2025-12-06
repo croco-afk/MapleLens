@@ -32,15 +32,32 @@
             </p>
           </div>
 
+          <!-- Actions Toolbar -->
           <div class="minimap-preview-wrapper">
-            <button 
-              class="btn-render-map" 
-              :disabled="!selectedMap.id"
-              @click="isMapRendered = true"
-            >
-              {{ $t('mapViewer.renderMapBtn') }}
-            </button>
+            <div class="action-buttons">
+              <button 
+                class="btn-primary" 
+                :disabled="!selectedMap.id"
+                @click="isMapRendered = true"
+              >
+                {{ $t('mapViewer.renderMapBtn') }}
+              </button>
+
+              <button 
+                class="btn-secondary" 
+                :disabled="!selectedMap.id || isExporting"
+                @click="handleExportMap"
+              >
+                {{ isExporting ? 'Exporting...' : 'Export JSON' }}
+              </button>
+            </div>
             
+            <!-- Export Status Message -->
+            <div v-if="exportStatus" :class="['status-msg', exportStatusType]">
+              {{ exportStatus }}
+            </div>
+
+            <!-- Minimap Image -->
             <template v-if="selectedMap.minimapUrl && !imageLoadError">
               <img 
                 :src="selectedMap.minimapUrl" 
@@ -65,6 +82,10 @@
 
 <script>
 import MapRenderer from './MapRenderer.vue';
+import { getMapRenderData } from '@/utils/map-processor';
+import { writeTextFile } from '@tauri-apps/plugin-fs';
+import { open } from '@tauri-apps/plugin-dialog';
+import { join } from '@tauri-apps/api/path';
 
 export default {
   name: 'MapViewer',
@@ -85,12 +106,18 @@ export default {
     return {
       imageLoadError: false,
       isMapRendered: false,
+      
+      // --- 新增状态 ---
+      isExporting: false,
+      exportStatus: '',
+      exportStatusType: '' // 'success' | 'error'
     };
   },
   watch: {
     selectedMap() {
       this.imageLoadError = false;
       this.isMapRendered = false;
+      this.exportStatus = ''; // 切换地图时清除状态
     }
   },
   methods: {
@@ -98,16 +125,75 @@ export default {
       console.error('Failed to load minimap image for map:', this.selectedMap?.id);
       this.imageLoadError = true;
     },
+    
+
+    async handleExportMap() {
+      if (!this.selectedMap || this.isExporting) return;
+
+      this.isExporting = true;
+      this.exportStatus = 'Processing...';
+      this.exportStatusType = '';
+
+      try {
+        // 1. 选择保存目录
+        const selectedDirPath = await open({
+          directory: true,
+          multiple: false,
+          title: 'Select Directory to Save Map JSONs'
+        });
+
+        if (!selectedDirPath) {
+          this.exportStatus = '';
+          this.isExporting = false;
+          return;
+        }
+
+        const mapId = this.selectedMap.id;
+
+        // 2. 获取数据
+        // 直接使用 props 里的 serverUrl
+        const data = await getMapRenderData(mapId, this.serverUrl);
+        
+        // 3. 准备路径
+        const logicFileName = `MapLogic-${mapId}.json`;
+        const renderFileName = `MapRender-${mapId}.json`;
+        
+        const logicPath = await join(selectedDirPath, logicFileName);
+        const renderPath = await join(selectedDirPath, renderFileName);
+
+        // 4. 写入文件
+        await writeTextFile(logicPath, JSON.stringify(data.mapLogic, null, 2));
+        await writeTextFile(renderPath, JSON.stringify(data.mapRender, null, 2));
+
+        this.exportStatus = 'Export Successful!';
+        this.exportStatusType = 'success';
+        
+        // 3秒后清除成功消息
+        setTimeout(() => {
+          if (this.exportStatusType === 'success') {
+            this.exportStatus = '';
+          }
+        }, 3000);
+
+      } catch (err) {
+        console.error('Export failed:', err);
+        this.exportStatus = `Error: ${err.message || err}`;
+        this.exportStatusType = 'error';
+      } finally {
+        this.isExporting = false;
+      }
+    },
+
     async copyToClipboard(text) {
       if (navigator.clipboard) {
         try {
           await navigator.clipboard.writeText(String(text));
-          alert('Copied to clipboard!');
+          // alert('Copied to clipboard!'); // 可选：去掉弹窗，体验更好
         } catch (err) {
           console.error('Failed to copy: ', err);
-          alert('Failed to copy to clipboard.');
         }
       } else {
+        // Fallback implementation
         const textArea = document.createElement("textarea");
         textArea.value = String(text);
         textArea.style.position = "fixed";
@@ -117,10 +203,8 @@ export default {
         textArea.select();
         try {
           document.execCommand('copy');
-          alert('Copied to clipboard!');
         } catch (err) {
           console.error('Fallback: Failed to copy: ', err);
-          alert('Fallback: Failed to copy to clipboard.');
         }
         document.body.removeChild(textArea);
       }
@@ -141,7 +225,6 @@ export default {
   box-sizing: border-box; 
 }
 
-/* 【关键修复 2】中间层容器开启 Flex，占据剩余空间 */
 .minimap-preview-section {
   display: flex;          
   flex-direction: column; 
@@ -157,14 +240,12 @@ export default {
   flex-shrink: 0; 
 }
 
-
 .main-content-wrapper {
   display: flex;
   flex-direction: column;
   flex: 1;        
   min-height: 0; 
 }
-
 
 .map-render-area {
   flex: 1;            
@@ -208,24 +289,53 @@ export default {
     align-items: center;
     gap: 10px;
 }
-.btn-render-map {
+
+
+.action-buttons {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+
+
+button {
   padding: 8px 15px;
   font-size: 14px;
   font-weight: 600;
-  color: white;
-  background-color: #007bff;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   transition: background-color 0.2s;
+  color: white;
 }
-.btn-render-map:hover:not(:disabled) {
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background-color: #007bff;
+}
+.btn-primary:hover:not(:disabled) {
   background-color: #0056b3;
 }
-.btn-render-map:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
+
+.btn-secondary {
+  background-color: #28a745;
 }
+.btn-secondary:hover:not(:disabled) {
+  background-color: #218838;
+}
+
+/* 状态消息样式 */
+.status-msg {
+  font-size: 12px;
+  margin-bottom: 5px;
+}
+.status-msg.success { color: green; }
+.status-msg.error { color: red; }
+
 
 .no-minimap-placeholder {
   text-align: center;
